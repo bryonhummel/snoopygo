@@ -154,7 +154,12 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	fmt.Println(fmt.Sprintf("User %v joined channel %v with %v members", v.Member.Nick, channelName, memberCount))
 
 	if userJoined {
-		s.ChannelMessageSend(config.NotificationChannel, fmt.Sprintf("<@%v> joined <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount))
+		if memberCount == 1 {
+			s.ChannelMessageSend(config.NotificationChannel, fmt.Sprintf("<@%v> started a voice chat in <#%v>", v.Member.User.ID, newChannelId))
+		} else {
+			s.ChannelMessageSend(config.NotificationChannel, fmt.Sprintf("<@%v> joined a voice chat in <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount))
+
+		}
 	}
 
 }
