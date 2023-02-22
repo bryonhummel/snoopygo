@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	embed "github.com/Clinet/discordgo-embed"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -18,6 +19,9 @@ import (
 var (
 	Token string
 )
+
+const EmbedPrimaryColor = 0x00CC00
+const EmbedErrorColor = 0xCC0000
 
 type channelInfo struct {
 	Name string `json:"name"`
@@ -154,14 +158,15 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	fmt.Println(fmt.Sprintf("User %v joined channel %v with %v members", v.Member.Nick, channelName, memberCount))
 
 	if userJoined {
+		var msg string
 		if memberCount == 1 {
-			s.ChannelMessageSend(config.NotificationChannel, fmt.Sprintf("<@%v> started a voice chat in <#%v>", v.Member.User.ID, newChannelId))
+			msg = fmt.Sprintf("<@%v> started a voice chat in <#%v>", v.Member.User.ID, newChannelId)
 		} else {
-			s.ChannelMessageSend(config.NotificationChannel, fmt.Sprintf("<@%v> joined a voice chat in <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount))
-
+			msg = fmt.Sprintf("<@%v> joined a voice chat in <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount)
 		}
+		emb := embed.NewEmbed().SetDescription(msg).SetColor(EmbedPrimaryColor)
+		s.ChannelMessageSendEmbeds(config.NotificationChannel, []*discordgo.MessageEmbed{emb.MessageEmbed})
 	}
-
 }
 
 func getChannelIdFromName(channels []*discordgo.Channel, name string) string {
@@ -185,27 +190,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == "snoopy help" {
-		s.ChannelMessageSend(m.ChannelID,
-			`snoopy setchannel
-    sets the text channel where notifications will be sent
-snoopy watchchannel <channel name>
-    adds a voice channel to the list of watched voice channels`)
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Help",
+			"`snoopy setchannel`\n- sets the text channel where notifications will be sent\n"+
+				"`snoopy watchchannel <channel name>`\n- adds a voice channel to the list of watched channels\n", EmbedPrimaryColor)})
 		return
 	}
 
 	if m.Content == "snoopy setchannel" {
-		s.ChannelMessageSend(m.ChannelID, "Using this channel for voice chat notifications!")
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			"Using this channel for voice chat notifications!", EmbedPrimaryColor)})
 		config.NotificationChannel = m.ChannelID
 		writeConfigToFile(config)
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "snoopy watchchannel ") {
-		channelName := m.Content[len("snoopy watchchannel "):]
-		if len(channelName) == 0 {
-			s.ChannelMessageSend(m.ChannelID, "Unable to set watch channel, please specify a voice channel name")
+	if strings.HasPrefix(m.Content, "snoopy watchchannel") {
+		if len(m.Content) <= len("snoopy watchchannel ") {
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+				fmt.Sprintf("Unable to set watch channel, please specify a voice channel name"), EmbedErrorColor)})
 			return
 		}
+
+		channelName := m.Content[len("snoopy watchchannel "):]
 
 		channels, err := s.GuildChannels(m.GuildID)
 		if err != nil {
@@ -214,11 +220,15 @@ snoopy watchchannel <channel name>
 		}
 		channelID := getChannelIdFromName(channels, channelName)
 		if channelID == "" {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Requested channel (%v) not found", channelName))
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+				fmt.Sprintf("Requested channel (%v) not found", channelName), EmbedErrorColor)})
 			return
 		}
 
 		fmt.Println(fmt.Sprintf("watchchannel: %v (%v)", channelName, channelID))
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			fmt.Sprintf("Voice channel <#%v> added to watch list", channelID), EmbedPrimaryColor)})
+
 		config.WatchedVoiceChannels = append(config.WatchedVoiceChannels, channelInfo{channelName, channelID})
 		writeConfigToFile(config)
 	}
