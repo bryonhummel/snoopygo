@@ -33,7 +33,7 @@ type SnoopyConfig struct {
 	WatchedVoiceChannels []channelInfo `json:"WatchedVoiceChannels"`
 }
 
-var config *SnoopyConfig
+var config map[string]*SnoopyConfig
 
 func init() {
 
@@ -43,13 +43,14 @@ func init() {
 	cfg, err := readConfigFromFile()
 	if err != nil {
 		fmt.Println("unable to read config file, using default/empty config")
-		config = &SnoopyConfig{}
+		fmt.Println(err)
+		config = map[string]*SnoopyConfig{}
 	} else {
 		config = cfg
 	}
 }
 
-func writeConfigToFile(config *SnoopyConfig) {
+func writeConfigToFile(config map[string]*SnoopyConfig) {
 	fmt.Println("Writing snoopyConfig.json")
 	jsonData, err := json.Marshal(config)
 	if err != nil {
@@ -59,14 +60,14 @@ func writeConfigToFile(config *SnoopyConfig) {
 	ioutil.WriteFile("snoopyConfig.json", jsonData, os.ModePerm)
 }
 
-func readConfigFromFile() (*SnoopyConfig, error) {
+func readConfigFromFile() (map[string]*SnoopyConfig, error) {
 	fmt.Println("Reading snoopyConfig.json")
 	rawData, err := ioutil.ReadFile("snoopyConfig.json")
 	if err != nil {
 		return nil, err
 	}
-	config := &SnoopyConfig{}
-	err = json.Unmarshal(rawData, config)
+	config := map[string]*SnoopyConfig{}
+	err = json.Unmarshal(rawData, &config)
 
 	return config, err
 }
@@ -128,15 +129,15 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 		userName = old.Member.Nick
 	}
 
-	if userUpdated || config.NotificationChannel == "" {
+	if userUpdated || config[guild].NotificationChannel == "" {
 		return
 	}
 
 	channelName := ""
-	for i := 0; i < len(config.WatchedVoiceChannels); i++ {
-		if config.WatchedVoiceChannels[i].ID == newChannelId {
+	for i := 0; i < len(config[guild].WatchedVoiceChannels); i++ {
+		if config[guild].WatchedVoiceChannels[i].ID == newChannelId {
 			userJoined = true
-			channelName = config.WatchedVoiceChannels[i].Name
+			channelName = config[guild].WatchedVoiceChannels[i].Name
 		}
 	}
 
@@ -165,7 +166,7 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 			msg = fmt.Sprintf("<@%v> joined a voice chat in <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount)
 		}
 		emb := embed.NewEmbed().SetDescription(msg).SetColor(EmbedPrimaryColor)
-		s.ChannelMessageSendEmbeds(config.NotificationChannel, []*discordgo.MessageEmbed{emb.MessageEmbed})
+		s.ChannelMessageSendEmbeds(config[v.GuildID].NotificationChannel, []*discordgo.MessageEmbed{emb.MessageEmbed})
 	}
 }
 
@@ -199,7 +200,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Content == "snoopy setchannel" {
 		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
 			"Using this channel for voice chat notifications!", EmbedPrimaryColor)})
-		config.NotificationChannel = m.ChannelID
+		if config[m.GuildID] == nil {
+			config[m.GuildID] = &SnoopyConfig{NotificationChannel: m.ChannelID}
+		} else {
+			config[m.GuildID].NotificationChannel = m.ChannelID
+		}
 		writeConfigToFile(config)
 		return
 	}
@@ -229,7 +234,22 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
 			fmt.Sprintf("Voice channel <#%v> added to watch list", channelID), EmbedPrimaryColor)})
 
-		config.WatchedVoiceChannels = append(config.WatchedVoiceChannels, channelInfo{channelName, channelID})
+		if config[m.GuildID] == nil {
+			config[m.GuildID] = &SnoopyConfig{WatchedVoiceChannels: []channelInfo{{channelName, channelID}}}
+		} else {
+			exists := false
+			for _, watched := range config[m.GuildID].WatchedVoiceChannels {
+				if watched.ID == channelID {
+					exists = true
+				}
+			}
+			if !exists {
+				config[m.GuildID].WatchedVoiceChannels = append(config[m.GuildID].WatchedVoiceChannels, channelInfo{channelName, channelID})
+			} else {
+				fmt.Println("channel already in watched list, skipping")
+			}
+		}
+
 		writeConfigToFile(config)
 	}
 
