@@ -110,7 +110,6 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 
 	old := v.BeforeUpdate
 	new := v
-	fmt.Println(fmt.Sprintf("voice update"))
 
 	if old == nil {
 		old = &discordgo.VoiceState{}
@@ -193,7 +192,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Content == "snoopy help" {
 		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Help",
 			"`snoopy setchannel`\n- sets the text channel where notifications will be sent\n"+
-				"`snoopy watchchannel <channel name>`\n- adds a voice channel to the list of watched channels\n", EmbedPrimaryColor)})
+				"`snoopy watchchannel <channel name>`\n- adds a voice channel to the list of watched channels\n"+
+				"`snoopy unwatchchannel <channel name>`\n- removes a voice channel to the list of watched channels\n", EmbedPrimaryColor)})
 		return
 	}
 
@@ -253,4 +253,49 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		writeConfigToFile(config)
 	}
 
+	if strings.HasPrefix(m.Content, "snoopy unwatchchannel") {
+		if len(m.Content) <= len("snoopy unwatchchannel ") {
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+				fmt.Sprintf("Unable to unset watch channel, please specify a voice channel name"), EmbedErrorColor)})
+			return
+		}
+
+		channelName := m.Content[len("snoopy unwatchchannel "):]
+
+		channels, err := s.GuildChannels(m.GuildID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		channelID := getChannelIdFromName(channels, channelName)
+		if channelID == "" {
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+				fmt.Sprintf("Requested channel (%v) not found", channelName), EmbedErrorColor)})
+			return
+		}
+
+		fmt.Println(fmt.Sprintf("unwatchchannel: %v (%v)", channelName, channelID))
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			fmt.Sprintf("Voice channel <#%v> removed from watch list", channelID), EmbedPrimaryColor)})
+
+		if config[m.GuildID] != nil {
+			var foundIndex = -1
+			for idx, watched := range config[m.GuildID].WatchedVoiceChannels {
+				if watched.ID == channelID {
+					foundIndex = idx
+				}
+			}
+			if foundIndex >= 0 {
+				config[m.GuildID].WatchedVoiceChannels = removeIndex(config[m.GuildID].WatchedVoiceChannels, foundIndex)
+			} else {
+				fmt.Println("unable to remove channel that does not exist in our list, skipping")
+			}
+		}
+
+		writeConfigToFile(config)
+	}
+}
+
+func removeIndex(s []channelInfo, index int) []channelInfo {
+	return append(s[:index], s[index+1:]...)
 }
