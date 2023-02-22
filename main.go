@@ -128,7 +128,7 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 		userName = old.Member.Nick
 	}
 
-	if userUpdated || config[guild].NotificationChannel == "" {
+	if userUpdated || config[guild] == nil || config[guild].NotificationChannel == "" {
 		return
 	}
 
