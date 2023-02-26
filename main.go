@@ -197,12 +197,25 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Help",
 			"`snoopy setchannel`\n- sets the text channel where notifications will be sent\n"+
 				"`snoopy watchchannel <channel name>`\n- adds a voice channel to the list of watched channels\n"+
-				"`snoopy unwatchchannel <channel name>`\n- removes a voice channel to the list of watched channels\n", EmbedPrimaryColor)})
+				"`snoopy unwatchchannel <channel name>`\n- removes a voice channel to the list of watched channels\n"+
+				"`snoopy usage`\n- print some helpful usage instructions\n",
+			EmbedPrimaryColor)})
 		return
 	}
 
+	if m.Content == "snoopy usage" {
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Usage",
+			`Snoopy will notify this channel when someone starts a new, or joins an existing, Discord voice session.
+
+			To get these notifications, make sure this channel has notifications enabled (or mute this channel if you are un-interested in Discord voice activity).
+
+			It may be useful to configure different mobile notifications so you get them when away from your console/computer and know some people are hanging out in voice chat!
+			`,
+			EmbedPrimaryColor)})
+	}
+
 	if m.Content == "snoopy setchannel" {
-		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Set Channel",
 			"Using this channel for voice chat notifications!", EmbedPrimaryColor)})
 		if config[m.GuildID] == nil {
 			config[m.GuildID] = &SnoopyConfig{NotificationChannel: m.ChannelID}
@@ -215,7 +228,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if strings.HasPrefix(m.Content, "snoopy watchchannel") {
 		if len(m.Content) <= len("snoopy watchchannel ") {
-			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Error",
 				fmt.Sprintf("Unable to set watch channel, please specify a voice channel name"), EmbedErrorColor)})
 			return
 		}
@@ -229,13 +242,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		channelID := getChannelIdFromName(channels, channelName)
 		if channelID == "" {
-			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Error",
 				fmt.Sprintf("Requested channel (%v) not found", channelName), EmbedErrorColor)})
 			return
 		}
 
 		fmt.Println(fmt.Sprintf("watchchannel: %v (%v)", channelName, channelID))
-		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Watch Channel",
 			fmt.Sprintf("Voice channel <#%v> added to watch list", channelID), EmbedPrimaryColor)})
 
 		if config[m.GuildID] == nil {
@@ -259,7 +272,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if strings.HasPrefix(m.Content, "snoopy unwatchchannel") {
 		if len(m.Content) <= len("snoopy unwatchchannel ") {
-			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Error",
 				fmt.Sprintf("Unable to unset watch channel, please specify a voice channel name"), EmbedErrorColor)})
 			return
 		}
@@ -273,13 +286,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		channelID := getChannelIdFromName(channels, channelName)
 		if channelID == "" {
-			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+			s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Error",
 				fmt.Sprintf("Requested channel (%v) not found", channelName), EmbedErrorColor)})
 			return
 		}
 
 		fmt.Println(fmt.Sprintf("unwatchchannel: %v (%v)", channelName, channelID))
-		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy",
+		s.ChannelMessageSendEmbeds(m.ChannelID, []*discordgo.MessageEmbed{embed.NewGenericEmbedAdvanced("Snoopy Unwatch Channel",
 			fmt.Sprintf("Voice channel <#%v> removed from watch list", channelID), EmbedPrimaryColor)})
 
 		if config[m.GuildID] != nil {
