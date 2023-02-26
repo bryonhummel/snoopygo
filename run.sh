@@ -7,7 +7,7 @@ cd $SCRIPTDIR
 source devtoken.sh
 source livetoken.sh
 
-TOKEN=$DEV_TOKEN
+TOKEN=$LIVE_TOKEN
 
 while :
 do
