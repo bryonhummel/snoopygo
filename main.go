@@ -151,14 +151,22 @@ func voiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 		}
 	}
 
-	fmt.Println(fmt.Sprintf("User %v joined channel %v with %v members", v.Member.Nick, channelName, memberCount))
+	displayName := v.Member.User.Username
+	if v.Member.Nick != "" {
+		displayName = v.Member.Nick
+	}
+	fmt.Println(fmt.Sprintf("User %v joined channel %v with %v members", displayName, channelName, memberCount))
 
 	if userJoined {
 		var msg string
 		if memberCount == 1 {
-			msg = fmt.Sprintf("<@%v> started a voice chat in <#%v>", v.Member.User.ID, newChannelId)
+			msg = fmt.Sprintf("%v started a voice chat in #%v, come join them!", displayName, channelName)
 		} else {
-			msg = fmt.Sprintf("<@%v> joined a voice chat in <#%v> with %v members", v.Member.User.ID, newChannelId, memberCount)
+			mem := "members"
+			if memberCount <= 2 {
+				mem = "member"
+			}
+			msg = fmt.Sprintf("%v joined a voice chat in #%v with %v other %v", displayName, channelName, memberCount-1, mem)
 		}
 		emb := embed.NewEmbed().SetDescription(msg).SetColor(EmbedPrimaryColor)
 		s.ChannelMessageSendEmbeds(config[v.GuildID].NotificationChannel, []*discordgo.MessageEmbed{emb.MessageEmbed})
